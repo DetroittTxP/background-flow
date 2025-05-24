@@ -1,0 +1,38 @@
+# includes:
+#   - docker-compose-prefect.yaml
+
+services:
+  database:
+    image: postgres:15.0
+    container_name: database
+    ports:
+      - "5432:5432"
+    volumes:
+      - databasestore:/var/lib/postgresql/database
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: shop
+    command: postgres -c 'max_connections=200'
+  core:
+    container_name: shop-core
+    build:
+      context: backend
+      dockerfile: dockerfile.dev
+    ports:
+      - "8000:8000"
+    user: 1000:1000
+    stdin_open: true
+    tty: true
+    depends_on:
+      - database
+    env_file:
+      - .env
+    volumes:
+      - ./backend/source:/app/core/source
+      - ${USERPROFILE}/.vscode-server-shop-core:/home/vscode/.vscode-server
+    command: sh -c "./manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  databasestore:
+    driver: local
