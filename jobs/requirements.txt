@@ -1,0 +1,4 @@
+pytest
+prefect==3.4.1
+requests
+paramiko

@@ -1,5 +1,5 @@
-# includes:
-#   - docker-compose-prefect.yaml
+include:
+  - docker-compose-prefect.yaml
 
 services:
   database:
@@ -8,7 +8,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - databasestore:/var/lib/postgresql/database
+      - databasestore:/var/lib/postgresql/data/
     environment:
       POSTGRES_USER: shop
       POSTGRES_PASSWORD: password
@@ -37,7 +37,7 @@ services:
     volumes:
       - ./backend/source:/app/core/source
       - ${HOME}/.vscode-server-shop-core:/home/vscode/.vscode-server
-    command: sh -c "./manage.py runserver 0.0.0.0:8000"
+    command: sh -c "./manage.py migrate && ./manage.py runserver 0.0.0.0:8000"
 
 volumes:
   databasestore:

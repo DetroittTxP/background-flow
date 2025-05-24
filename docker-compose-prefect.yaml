@@ -1,0 +1,63 @@
+services:
+    prefect-database:
+        image: postgres:15.2-alpine
+        container_name: prefect-database
+        restart: always
+        environment:
+            POSTGRES_USER: prefect
+            POSTGRES_PASSWORD: password
+            POSTGRES_DB: prefect
+        volumes:
+            - prefect-database-data:/var/lib/postgresql/data
+    
+    prefect:
+        image: prefecthq/prefect:3.4.1-python3.13
+        restart: always
+        entrypoint: ["/opt/prefect/entrypoint.sh", "prefect", "server", "start"]
+        environment:
+          - PREFECT_UI_URL=http://127.0.0.1:4200/api
+          - PREFECT_API_URL=http://127.0.0.1:4200/api
+          - PREFECT_SERVER_API_HOST=0.0.0.0
+          - PREFECT_API_DATABASE_CONNECTION_URL=postgresql+asyncpg://prefect:password@prefect-database:5432/prefect
+        ports:
+            - "4200:4200"
+        depends_on:
+            - prefect-database
+
+    prefect-worker:
+        container_name: prefect_worker_site_default
+        build:
+            context: jobs
+            dockerfile: dockerfile.dev
+        command: ["prefect", "worker", "start", "--pool", "worker-site-default"]
+        volumes:
+            - ./jobs/source:/app/jobs
+        depends_on:
+            - prefect
+        restart: always
+        environment:
+            - PREFECT_API_URL=http://prefect:4200/api
+            - PREFECT_WORKER_MAX_CONCURRENT_TASKS=5
+            - PREFECT_WORKER_LOG_LEVEL=DEBUG
+        env_file:
+           - ./.env   
+    
+    prefect-deploy-job:
+        container_name: prefect_initial_job
+        build:
+            context: jobs
+            dockerfile: dockerfile.dev
+        command: ["python", "/app/jobs/deploy.py"]
+        # command: sh -c "sleep infinity"
+        volumes:
+            - ./jobs/source:/app/jobs
+        depends_on:
+            - prefect
+            - prefect-worker
+        environment:
+            - PREFECT_API_URL=http://prefect:4200/api
+            - PREFECT_WORKER_MAX_CONCURRENT_TASKS=5
+            - PREFECT_WORKER_LOG_LEVEL=DEBUG
+
+volumes:
+    prefect-database-data:
