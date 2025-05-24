@@ -1,21 +1,38 @@
 from prefect import flow
 from prefect.logging import get_run_logger
-import time
+
+from process_order.task import process_payment, send_confirmation, update_inventory, validate_order
 
 
 @flow(name="Process Order Flow")
 def process_order_flow(order_id: str):
-    """
-    Flow to process an order.
 
-    Args:
-        order_id (str): The ID of the order to be processed.
-    """
-    print(f"Processing order with ID: {order_id}")
     logger = get_run_logger()
-    logger.info(f"Starting to process order {order_id}")
-    time.sleep(2)
-    logger.info(f"Finished processing order {order_id}")
+    logger.info(f"Starting processing for order: {order_id}")
 
-    # Here you would typically call tasks to handle the order processing logic
-    # For example, validating the order, charging payment, updating inventory, etc.
+    # Step 1: Validate the order
+    is_valid = validate_order(order_id)
+    if not is_valid:
+        logger.error(
+            f"Order {order_id} processing stopped due to validation failure")
+        return False
+
+    # Step 2: Process payment
+    payment_successful = process_payment(order_id)
+    if not payment_successful:
+        logger.error(
+            f"Order {order_id} processing stopped due to payment failure")
+        return False
+
+    # Step 3: Update inventory
+    inventory_updated = update_inventory(order_id)
+    if not inventory_updated:
+        logger.error(
+            f"Order {order_id} processing encountered inventory update failure")
+        # In this case, we might still want to proceed with the order
+
+    # Step 4: Send confirmationß
+    send_confirmation(order_id)
+
+    logger.info(f"Completed processing for order: {order_id}")
+    return True
